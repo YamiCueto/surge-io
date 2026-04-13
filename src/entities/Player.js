@@ -13,12 +13,20 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.mp = 80;
     this.maxMp = 80;
     this.speed = 200;
-    this.jumpForce = 480;
+    this.jumpForce = 510;
     this.attackCooldown = 0;
     this.isAttacking = false;
     this.skillCooldown = 0;
     this.skillCooldownMax = 3000;
     this.skillManaCost = 20;
+
+    // Player feel
+    this.coyoteTime = 0;
+    this.coyoteMax = 90;
+    this.jumpBuffer = 0;
+    this.jumpBufferMax = 120;
+    this.setDragX(1500);
+    this.body.maxVelocity.x = 215;
 
     this.keys = scene.input.keyboard.addKeys({
       left: Phaser.Input.Keyboard.KeyCodes.A,
@@ -40,19 +48,43 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   update(delta) {
     const { left, right, jump, attack } = this.keys;
     const onGround = this.body.blocked.down;
+    const dt = delta / 1000;
 
-    if (left.isDown) {
-      this.setVelocityX(-this.speed);
-      this.setFlipX(true);
-    } else if (right.isDown) {
-      this.setVelocityX(this.speed);
-      this.setFlipX(false);
+    // — Coyote time —
+    if (onGround) {
+      this.coyoteTime = this.coyoteMax;
     } else {
-      this.setVelocityX(0);
+      this.coyoteTime = Math.max(0, this.coyoteTime - delta);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(jump) && onGround) {
+    // — Jump buffer —
+    if (Phaser.Input.Keyboard.JustDown(jump)) {
+      this.jumpBuffer = this.jumpBufferMax;
+    }
+    this.jumpBuffer = Math.max(0, this.jumpBuffer - delta);
+
+    // — Horizontal movement via acceleration + drag —
+    const accel = onGround ? 1600 : 900;
+    if (left.isDown) {
+      this.setAccelerationX(-accel);
+      this.setFlipX(true);
+    } else if (right.isDown) {
+      this.setAccelerationX(accel);
+      this.setFlipX(false);
+    } else {
+      this.setAccelerationX(0);
+    }
+
+    // — Jump with coyote + buffer —
+    if (this.jumpBuffer > 0 && this.coyoteTime > 0) {
       this.setVelocityY(-this.jumpForce);
+      this.jumpBuffer = 0;
+      this.coyoteTime = 0;
+    }
+
+    // — Variable jump height: release early → shorter jump —
+    if (!jump.isDown && this.body.velocity.y < 0) {
+      this.body.velocity.y += 820 * dt;
     }
 
     if (this.attackCooldown > 0) this.attackCooldown -= delta;

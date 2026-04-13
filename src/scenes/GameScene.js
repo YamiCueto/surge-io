@@ -41,7 +41,7 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
 
     this.manaSystem = new ManaSystem(this.player);
-    this.hud = new HUD(this, this.player);
+    this.hud = new HUD(this);
     this.shadows = [];
     this.maxShadows = 2;
     this.shadowManaCost = 30;
@@ -259,7 +259,11 @@ export default class GameScene extends Phaser.Scene {
       }
     });
 
-    this.hud.update(this.shadows.length, extractAvailable);
+    const p = this.player;
+    this.hud.updateHP(p.hp, p.maxHp);
+    this.hud.updateMP(p.mp, p.maxMp);
+    this.hud.updateSkill(p.skillCooldown, p.skillCooldownMax);
+    this.hud.updateShadows(this.shadows.length, extractAvailable);
   }
 
   hitlag(duration) {

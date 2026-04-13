@@ -1,7 +1,6 @@
 export default class HUD {
-  constructor(scene, player) {
+  constructor(scene) {
     this.scene = scene;
-    this.player = player;
 
     this.barX = 16;
     this.barY = 16;
@@ -42,13 +41,49 @@ export default class HUD {
     this.skillHint = scene.add.text(this.barX + 20 + this.barW + 6, this.barY + 78, '', {
       fontSize: '10px', fill: '#aaffaa'
     }).setScrollFactor(0).setDepth(12);
+
+    // Internal state
+    this._hp = 100; this._maxHp = 100;
+    this._mp = 80;  this._maxMp = 80;
+    this._skill = 0; this._skillMax = 3000;
+    this._shadows = 0; this._extractAvailable = false;
   }
 
+  updateHP(current, max) {
+    this._hp = current;
+    this._maxHp = max;
+    this._redraw();
+  }
+
+  updateMP(current, max) {
+    this._mp = current;
+    this._maxMp = max;
+    this._redraw();
+  }
+
+  updateSkill(cooldown, max) {
+    this._skill = cooldown;
+    this._skillMax = max;
+    this._redraw();
+  }
+
+  updateShadows(count, extractAvailable = false) {
+    this._shadows = count;
+    this._extractAvailable = extractAvailable;
+    this._redraw();
+  }
+
+  /** @deprecated Use the individual update methods instead */
   update(shadowCount = 0, extractAvailable = false) {
-    const p = this.player;
-    const hpRatio = Math.max(0, p.hp / p.maxHp);
-    const mpRatio = Math.max(0, p.mp / p.maxMp);
-    const skillRatio = Math.max(0, 1 - p.skillCooldown / p.skillCooldownMax);
+    this._shadows = shadowCount;
+    this._extractAvailable = extractAvailable;
+    this._redraw();
+  }
+
+  _redraw() {
+    const hpRatio    = Math.max(0, this._hp  / this._maxHp);
+    const mpRatio    = Math.max(0, this._mp  / this._maxMp);
+    const skillRatio = Math.max(0, 1 - this._skill / this._skillMax);
 
     this.bg.clear();
     this.bg.fillStyle(0x000000, 0.55);
@@ -71,10 +106,10 @@ export default class HUD {
     this.bars.fillStyle(0x66bb6a, 1);
     this.bars.fillRect(this.barX + 20, this.barY + 78, this.barW * skillRatio, this.barH);
 
-    this.valueHp.setText(`${Math.ceil(p.hp)}/${p.maxHp}`);
-    this.valueMp.setText(`${Math.floor(p.mp)}/${p.maxMp}`);
-    this.shadowLabel.setText(`SHADOWS: ${shadowCount} / 2`);
-    this.extractHint.setText(extractAvailable ? '[E] Extract Shadow' : '');
-    this.skillHint.setText(p.skillCooldown <= 0 ? '[K] Ready' : `${(p.skillCooldown / 1000).toFixed(1)}s`);
+    this.valueHp.setText(`${Math.ceil(this._hp)}/${this._maxHp}`);
+    this.valueMp.setText(`${Math.floor(this._mp)}/${this._maxMp}`);
+    this.shadowLabel.setText(`SHADOWS: ${this._shadows} / 2`);
+    this.extractHint.setText(this._extractAvailable ? '[E] Extract Shadow' : '');
+    this.skillHint.setText(this._skill <= 0 ? '[K] Ready' : `${(this._skill / 1000).toFixed(1)}s`);
   }
 }
