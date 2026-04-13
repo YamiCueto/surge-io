@@ -20,13 +20,19 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.extractable = false;
     this.extracted = false;
     this.stunTimer = 0;
+    this.extractWindowTimer = 0;
+    this.extractLabel = null;
+    this._pulseDir = 1;
 
     this.hpBar = scene.add.graphics();
     this.drawHpBar();
   }
 
   update(delta, player) {
-    if (this.isDead) return;
+    if (this.isDead) {
+      this._tickExtractWindow(delta);
+      return;
+    }
 
     this.damageCooldown = Math.max(0, this.damageCooldown - delta);
     this.patrolTimer += delta;
@@ -118,6 +124,8 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     if (Math.random() < 0.25) {
       this.extractable = true;
+      this.extractWindowTimer = 5000;
+      this._startExtractPulse();
     }
 
     this.scene.tweens.add({
@@ -141,6 +149,46 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
+  _startExtractPulse() {
+    this.scene.tweens.add({
+      targets: this,
+      alpha: { from: 0.15, to: 0.5 },
+      duration: 500,
+      yoyo: true,
+      repeat: 9,
+      onComplete: () => {
+        if (!this.extracted) this._disappear();
+      }
+    });
+
+    this.extractLabel = this.scene.add.text(this.x, this.y - 44, '[E] 5s', {
+      fontSize: '10px', fill: '#f1c40f', fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(20);
+  }
+
+  _tickExtractWindow(delta) {
+    if (!this.extractable || this.extracted || this.extractWindowTimer <= 0) return;
+    this.extractWindowTimer -= delta;
+    if (this.extractLabel && this.extractLabel.active) {
+      const secs = Math.ceil(this.extractWindowTimer / 1000);
+      this.extractLabel.setText(`[E] ${secs}s`);
+    }
+    if (this.extractWindowTimer <= 0) {
+      this._disappear();
+    }
+  }
+
+  _disappear() {
+    this.extractable = false;
+    if (this.extractLabel) { this.extractLabel.destroy(); this.extractLabel = null; }
+    this.scene.tweens.add({
+      targets: this,
+      alpha: 0,
+      duration: 300,
+      onComplete: () => { this.extracted = true; }
+    });
+  }
+
   drawHpBar() {
     if (this.isDead) return;
     this.hpBar.clear();
@@ -157,6 +205,7 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
 
   destroy() {
     if (this.hpBar) this.hpBar.destroy();
+    if (this.extractLabel) this.extractLabel.destroy();
     super.destroy();
   }
 }

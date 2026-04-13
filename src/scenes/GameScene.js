@@ -45,6 +45,7 @@ export default class GameScene extends Phaser.Scene {
     this.shadows = [];
     this.maxShadows = 2;
     this.shadowManaCost = 30;
+    this._areaClearShown = false;
 
     this.chests = [
       new Chest(this, 250, 492),
@@ -251,6 +252,16 @@ export default class GameScene extends Phaser.Scene {
       this.tryExtract(extractTarget);
     }
 
+    // — Area Clear signal —
+    const aliveEnemies = this.enemies.filter(e => !e.isDead);
+    if (aliveEnemies.length === 0 && this.enemies.length > 0 && !this._areaClearShown) {
+      this._areaClearShown = true;
+      this._showAreaClear();
+    }
+    if (aliveEnemies.length > 0) {
+      this._areaClearShown = false;
+    }
+
     this.chests.forEach(chest => {
       chest.update(this.player);
       if (!chest.opened && Phaser.Input.Keyboard.JustDown(this.player.keys.interact)) {
@@ -269,6 +280,26 @@ export default class GameScene extends Phaser.Scene {
   hitlag(duration) {
     this.physics.world.pause();
     this.time.delayedCall(duration, () => this.physics.world.resume());
+  }
+
+  _showAreaClear() {
+    const cx = this.cameras.main.scrollX + 480;
+    const cy = this.cameras.main.scrollY + 100;
+    const txt = this.add.text(cx, cy, 'AREA CLEAR', {
+      fontSize: '22px', fill: '#9c88ff', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 4
+    }).setOrigin(0.5).setDepth(30).setScrollFactor(0).setAlpha(0);
+
+    this.tweens.add({
+      targets: txt,
+      alpha: 1,
+      y: txt.y - 18,
+      duration: 400,
+      ease: 'Power2',
+      yoyo: true,
+      hold: 1000,
+      onComplete: () => txt.destroy()
+    });
   }
 
   triggerDeath() {
