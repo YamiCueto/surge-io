@@ -91,6 +91,18 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
   takeDamage(amount) {
     this.hp = Math.max(0, this.hp - amount);
     this.spawnDamageNumber(amount);
+    this.screenFlash();
+  }
+
+  screenFlash() {
+    const flash = this.scene.add.rectangle(0, 0, 960, 540, 0xff0000, 0.25)
+      .setScrollFactor(0).setDepth(50).setOrigin(0, 0);
+    this.scene.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 220,
+      onComplete: () => flash.destroy()
+    });
   }
 
   spawnDamageNumber(amount) {

@@ -313,11 +313,40 @@ export default class GameScene extends Phaser.Scene {
     enemy.extractable = false;
     enemy.setVisible(false);
 
+    this.spawnExtractionParticles(enemy.x, enemy.y);
+
     const shadow = new Shadow(this, enemy.x, enemy.y);
+    shadow.setScale(0.1);
+    shadow.setAlpha(0);
     this.physics.add.collider(shadow, this.platforms);
     this.shadows.push(shadow);
 
+    this.tweens.add({
+      targets: shadow,
+      scaleX: 1, scaleY: 1,
+      alpha: 0.75,
+      duration: 400,
+      ease: 'Back.Out'
+    });
+
     this.showFloatingText(enemy.x, enemy.y - 30, 'Shadow Extracted!', '#9c88ff');
+  }
+
+  spawnExtractionParticles(x, y) {
+    for (let i = 0; i < 12; i++) {
+      const px = this.add.rectangle(x, y, 4, 4, 0x9c88ff).setDepth(20);
+      const angle = (i / 12) * Math.PI * 2;
+      const dist = Phaser.Math.Between(30, 70);
+      this.tweens.add({
+        targets: px,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        scaleX: 0, scaleY: 0,
+        duration: Phaser.Math.Between(400, 700),
+        onComplete: () => px.destroy()
+      });
+    }
   }
 
   showFloatingText(x, y, msg, color) {
