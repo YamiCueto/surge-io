@@ -233,7 +233,8 @@ export default class GameScene extends Phaser.Scene {
         const ab = this.player.attackBox;
         const bounds = new Phaser.Geom.Rectangle(ab.x - 20, ab.y - 15, 40, 30);
         if (Phaser.Geom.Rectangle.Overlaps(bounds, enemy.getBounds())) {
-          enemy.takeDamage(15);
+          enemy.takeDamage(15, this.player.x);
+          this.hitlag(60);
         }
       }
 
@@ -259,6 +260,11 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.hud.update(this.shadows.length, extractAvailable);
+  }
+
+  hitlag(duration) {
+    this.physics.world.pause();
+    this.time.delayedCall(duration, () => this.physics.world.resume());
   }
 
   triggerDeath() {

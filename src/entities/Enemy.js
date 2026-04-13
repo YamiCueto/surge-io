@@ -19,6 +19,7 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.isDead = false;
     this.extractable = false;
     this.extracted = false;
+    this.stunTimer = 0;
 
     this.hpBar = scene.add.graphics();
     this.drawHpBar();
@@ -29,6 +30,12 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     this.damageCooldown = Math.max(0, this.damageCooldown - delta);
     this.patrolTimer += delta;
+    this.stunTimer = Math.max(0, this.stunTimer - delta);
+
+    if (this.stunTimer > 0) {
+      this.drawHpBar();
+      return;
+    }
 
     const dist = Phaser.Math.Distance.Between(this.x, this.y, player.x, player.y);
 
@@ -61,16 +68,33 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setFlipX(this.patrolDir === -1);
   }
 
-  takeDamage(amount) {
+  takeDamage(amount, attackerX) {
     if (this.isDead) return;
     this.hp -= amount;
-    this.setTint(0xff4444);
-    this.scene.time.delayedCall(100, () => this.clearTint());
     this.spawnDamageNumber(amount);
+    this.applyKnockback(attackerX);
+    this.flashHit();
 
     if (this.hp <= 0) {
       this.die();
     }
+  }
+
+  applyKnockback(attackerX) {
+    const dir = this.x < attackerX ? -1 : 1;
+    this.setVelocityX(280 * dir);
+    this.setVelocityY(-160);
+    this.stunTimer = 250;
+  }
+
+  flashHit() {
+    this.setTint(0xffffff);
+    this.scene.time.delayedCall(60, () => {
+      if (!this.isDead) this.setTint(0xff4444);
+    });
+    this.scene.time.delayedCall(160, () => {
+      if (!this.isDead) this.clearTint();
+    });
   }
 
   spawnDamageNumber(amount) {
@@ -90,12 +114,31 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.isDead = true;
     this.setVelocity(0, 0);
     this.body.enable = false;
-    this.setTint(0x333333);
     this.hpBar.destroy();
 
     if (Math.random() < 0.25) {
       this.extractable = true;
     }
+
+    this.scene.tweens.add({
+      targets: this,
+      alpha: 0.5,
+      scaleX: 1.3,
+      scaleY: 0.5,
+      y: this.y + 10,
+      duration: 180,
+      ease: 'Power2',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: this,
+          alpha: 0.25,
+          scaleX: 1,
+          scaleY: 1,
+          duration: 200,
+          onComplete: () => this.setTint(0x1a0033)
+        });
+      }
+    });
   }
 
   drawHpBar() {
