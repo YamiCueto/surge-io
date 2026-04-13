@@ -24,6 +24,7 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       attack: Phaser.Input.Keyboard.KeyCodes.J,
       skill: Phaser.Input.Keyboard.KeyCodes.K,
       extract: Phaser.Input.Keyboard.KeyCodes.E,
+      interact: Phaser.Input.Keyboard.KeyCodes.F,
     });
 
     this.attackBox = scene.add.rectangle(0, 0, 40, 30, 0xffff00, 0);

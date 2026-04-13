@@ -1,6 +1,8 @@
 import Player from '../entities/Player.js';
 import Enemy from '../entities/Enemy.js';
 import Shadow from '../entities/Shadow.js';
+import Chest from '../entities/Chest.js';
+import Checkpoint from '../entities/Checkpoint.js';
 import ManaSystem from '../systems/ManaSystem.js';
 import HUD from '../ui/HUD.js';
 
@@ -42,6 +44,25 @@ export default class GameScene extends Phaser.Scene {
     this.shadows = [];
     this.maxShadows = 2;
     this.shadowManaCost = 30;
+
+    this.chests = [
+      new Chest(this, 250, 492),
+      new Chest(this, 700, 492),
+      new Chest(this, 1100, 492),
+      new Chest(this, 1600, 492),
+      new Chest(this, 2400, 492),
+    ];
+    this.chests.forEach(c => this.physics.add.collider(c, this.platforms));
+
+    this.checkpoints = [
+      new Checkpoint(this, 600, 500),
+      new Checkpoint(this, 1400, 500),
+      new Checkpoint(this, 2200, 500),
+    ];
+    this.checkpoints.forEach(cp => this.physics.add.collider(cp, this.platforms));
+
+    this.lastCheckpoint = { x: 100, y: 440 };
+    this.isDead = false;
   }
 
   createTextures() {
@@ -68,6 +89,41 @@ export default class GameScene extends Phaser.Scene {
     shadowGfx.fillRect(5, 4, 16, 14);
     shadowGfx.generateTexture('shadow', 26, 36);
     shadowGfx.destroy();
+
+    const chestClosed = this.make.graphics({ x: 0, y: 0, add: false });
+    chestClosed.fillStyle(0x8B6914, 1);
+    chestClosed.fillRect(0, 6, 32, 22);
+    chestClosed.fillStyle(0xD4A017, 1);
+    chestClosed.fillRect(0, 0, 32, 10);
+    chestClosed.fillStyle(0xF5C518, 1);
+    chestClosed.fillRect(12, 10, 8, 8);
+    chestClosed.generateTexture('chest_closed', 32, 28);
+    chestClosed.destroy();
+
+    const chestOpen = this.make.graphics({ x: 0, y: 0, add: false });
+    chestOpen.fillStyle(0x8B6914, 1);
+    chestOpen.fillRect(0, 10, 32, 18);
+    chestOpen.fillStyle(0xD4A017, 1);
+    chestOpen.fillRect(0, 0, 32, 10);
+    chestOpen.fillStyle(0x3a3a3a, 1);
+    chestOpen.fillRect(2, 10, 28, 16);
+    chestOpen.generateTexture('chest_open', 32, 28);
+    chestOpen.destroy();
+
+    const cpOff = this.make.graphics({ x: 0, y: 0, add: false });
+    cpOff.fillStyle(0x555577, 1);
+    cpOff.fillRect(6, 0, 8, 20);
+    cpOff.fillRect(0, 14, 20, 6);
+    cpOff.generateTexture('checkpoint_off', 20, 20);
+    cpOff.destroy();
+
+    const cpOn = this.make.graphics({ x: 0, y: 0, add: false });
+    cpOn.fillStyle(0x9c88ff, 1);
+    cpOn.fillRect(6, 0, 8, 20);
+    cpOn.fillStyle(0xd7ceff, 1);
+    cpOn.fillRect(0, 14, 20, 6);
+    cpOn.generateTexture('checkpoint_on', 20, 20);
+    cpOn.destroy();
   }
 
   buildWorld() {
@@ -107,8 +163,27 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    if (this.isDead) return;
+
+    if (this.player.hp <= 0) {
+      this.triggerDeath();
+      return;
+    }
+
     this.player.update(delta);
     this.manaSystem.update(delta);
+
+    this.checkpoints.forEach(cp => {
+      if (cp.activated) return;
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, cp.x, cp.y);
+      if (dist < 50) {
+        const activated = cp.activate();
+        if (activated) {
+          this.lastCheckpoint = { x: cp.spawnX, y: cp.spawnY };
+          this.showFloatingText(cp.x, cp.y - 90, 'Checkpoint!', '#9c88ff');
+        }
+      }
+    });
 
     this.shadows = this.shadows.filter(s => !s.isDead);
     this.shadows.forEach(s => {
@@ -142,7 +217,53 @@ export default class GameScene extends Phaser.Scene {
       this.tryExtract(extractTarget);
     }
 
+    this.chests.forEach(chest => {
+      chest.update(this.player);
+      if (!chest.opened && Phaser.Input.Keyboard.JustDown(this.player.keys.interact)) {
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, chest.x, chest.y);
+        if (dist < 80) chest.open(this.player);
+      }
+    });
+
     this.hud.update(this.shadows.length, extractAvailable);
+  }
+
+  triggerDeath() {
+    this.isDead = true;
+    this.player.setVelocity(0, 0);
+    this.player.setTint(0xff0000);
+
+    const overlay = this.add.rectangle(480, 270, 960, 540, 0x000000, 0)
+      .setScrollFactor(0).setDepth(30);
+    const txt = this.add.text(480, 240, 'DEFEATED', {
+      fontSize: '40px', fill: '#e74c3c', fontStyle: 'bold'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
+    const sub = this.add.text(480, 295, 'Respawning at last checkpoint...', {
+      fontSize: '16px', fill: '#aaaaaa'
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(31);
+
+    this.tweens.add({ targets: overlay, alpha: 0.7, duration: 600 });
+
+    this.time.delayedCall(2000, () => {
+      this.tweens.add({
+        targets: [overlay, txt, sub],
+        alpha: 0,
+        duration: 500,
+        onComplete: () => {
+          overlay.destroy(); txt.destroy(); sub.destroy();
+          this.respawn();
+        }
+      });
+    });
+  }
+
+  respawn() {
+    this.player.setPosition(this.lastCheckpoint.x, this.lastCheckpoint.y);
+    this.player.setVelocity(0, 0);
+    this.player.clearTint();
+    this.player.hp = Math.floor(this.player.maxHp * 0.4);
+    this.player.mp = Math.floor(this.player.maxMp * 0.5);
+    this.isDead = false;
   }
 
   tryExtract(enemy) {
