@@ -16,6 +16,9 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
     this.jumpForce = 480;
     this.attackCooldown = 0;
     this.isAttacking = false;
+    this.skillCooldown = 0;
+    this.skillCooldownMax = 3000;
+    this.skillManaCost = 20;
 
     this.keys = scene.input.keyboard.addKeys({
       left: Phaser.Input.Keyboard.KeyCodes.A,
@@ -52,12 +55,15 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
       this.setVelocityY(-this.jumpForce);
     }
 
-    if (this.attackCooldown > 0) {
-      this.attackCooldown -= delta;
-    }
+    if (this.attackCooldown > 0) this.attackCooldown -= delta;
+    if (this.skillCooldown > 0) this.skillCooldown -= delta;
 
     if (Phaser.Input.Keyboard.JustDown(attack) && this.attackCooldown <= 0) {
       this.triggerAttack();
+    }
+
+    if (Phaser.Input.Keyboard.JustDown(this.keys.skill) && this.skillCooldown <= 0) {
+      this.emit('skill', this.flipX ? -1 : 1);
     }
 
     this.updateAttackBox();
@@ -84,6 +90,20 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
   takeDamage(amount) {
     this.hp = Math.max(0, this.hp - amount);
+    this.spawnDamageNumber(amount);
+  }
+
+  spawnDamageNumber(amount) {
+    const txt = this.scene.add.text(this.x + Phaser.Math.Between(-8, 8), this.y - 24, `-${amount}`, {
+      fontSize: '14px', fill: '#ffffff', fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(25);
+    this.scene.tweens.add({
+      targets: txt,
+      y: txt.y - 40,
+      alpha: 0,
+      duration: 800,
+      onComplete: () => txt.destroy()
+    });
   }
 
   restoreHp(amount) {

@@ -66,10 +66,24 @@ export default class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.hp -= amount;
     this.setTint(0xff4444);
     this.scene.time.delayedCall(100, () => this.clearTint());
+    this.spawnDamageNumber(amount);
 
     if (this.hp <= 0) {
       this.die();
     }
+  }
+
+  spawnDamageNumber(amount) {
+    const txt = this.scene.add.text(this.x + Phaser.Math.Between(-10, 10), this.y - 20, `-${amount}`, {
+      fontSize: '13px', fill: '#ff6b6b', fontStyle: 'bold'
+    }).setOrigin(0.5).setDepth(25);
+    this.scene.tweens.add({
+      targets: txt,
+      y: txt.y - 36,
+      alpha: 0,
+      duration: 900,
+      onComplete: () => txt.destroy()
+    });
   }
 
   die() {

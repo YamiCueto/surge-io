@@ -3,6 +3,7 @@ import Enemy from '../entities/Enemy.js';
 import Shadow from '../entities/Shadow.js';
 import Chest from '../entities/Chest.js';
 import Checkpoint from '../entities/Checkpoint.js';
+import Projectile from '../entities/Projectile.js';
 import ManaSystem from '../systems/ManaSystem.js';
 import HUD from '../ui/HUD.js';
 
@@ -63,6 +64,20 @@ export default class GameScene extends Phaser.Scene {
 
     this.lastCheckpoint = { x: 100, y: 440 };
     this.isDead = false;
+
+    this.projectiles = [];
+
+    this.player.on('skill', (dirX) => {
+      const canFire = this.manaSystem.consume(this.player.skillManaCost);
+      if (!canFire) {
+        this.showFloatingText(this.player.x, this.player.y - 30, 'Not enough MP!', '#3498db');
+        return;
+      }
+      this.player.skillCooldown = this.player.skillCooldownMax;
+      const proj = new Projectile(this, this.player.x + (dirX * 20), this.player.y, dirX);
+      this.physics.add.collider(proj, this.platforms, () => proj.expire());
+      this.projectiles.push(proj);
+    });
   }
 
   createTextures() {
@@ -124,6 +139,14 @@ export default class GameScene extends Phaser.Scene {
     cpOn.fillRect(0, 14, 20, 6);
     cpOn.generateTexture('checkpoint_on', 20, 20);
     cpOn.destroy();
+
+    const projGfx = this.make.graphics({ x: 0, y: 0, add: false });
+    projGfx.fillStyle(0xaaffaa, 1);
+    projGfx.fillRect(0, 2, 12, 4);
+    projGfx.fillStyle(0xffffff, 1);
+    projGfx.fillRect(8, 3, 4, 2);
+    projGfx.generateTexture('projectile', 12, 8);
+    projGfx.destroy();
   }
 
   buildWorld() {
@@ -186,8 +209,18 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.shadows = this.shadows.filter(s => !s.isDead);
-    this.shadows.forEach(s => {
-      s.update(delta, this.enemies);
+    this.shadows.forEach(s => s.update(delta, this.enemies));
+
+    this.projectiles = this.projectiles.filter(p => !p.hit && p.active);
+    this.projectiles.forEach(proj => {
+      proj.update(delta);
+      this.enemies.forEach(enemy => {
+        if (!enemy.isDead && !proj.hit) {
+          if (Phaser.Geom.Rectangle.Overlaps(proj.getBounds(), enemy.getBounds())) {
+            proj.onHitEnemy(enemy);
+          }
+        }
+      });
     });
 
     let extractAvailable = false;
